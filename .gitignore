@@ -1,3 +1,4 @@
 *.csv
-
-!Clustering_Exploration/05_tables*.csv
+*.xlsx
+!Clustering_Exploration/05_tables/*.xlsx
+!Clustering_Exploration/05_tables/*.csv
