@@ -1,0 +1,3 @@
+*.csv
+
+!Clustering_Exploration/05_tables*.csv
