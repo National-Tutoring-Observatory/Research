@@ -1,4 +1,5 @@
 *.csv
 *.xlsx
+*.jsonl
 !Clustering_Exploration/05_tables/*.xlsx
 !Clustering_Exploration/05_tables/*.csv
