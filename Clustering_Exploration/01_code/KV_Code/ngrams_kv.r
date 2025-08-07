@@ -7,22 +7,47 @@ library(ggplot2)
 library(patchwork)
 
 ## load data
-dat <- read.csv("Clustering_Exploration/02_data/UPChieve_HumanAI_Annotations.csv", stringsAsFactors = FALSE)
+dat <- read.csv("Clustering_Exploration/02_data/UPCHieve_Next100_noAnno.csv", stringsAsFactors = FALSE)
 str(dat)
 unique(dat$Session.ID)
 
+
+# Drop first 6 utterances from each session
+dat <- dat %>%
+  group_by(Session.ID) %>%
+  filter(Utterance.ID >= 6) %>%
+  filter(Utterance.ID < max(Utterance.ID) - 3) %>%
+  ungroup()
+
 # For TEACHER
+teacher_sessions <- dat %>% filter(Role == "TEACHER") %>% pull(Session.ID) %>% unique()
+n_teacher_sessions <- length(teacher_sessions)
+
 teacher_ngrams <- dat %>%
   filter(Role == "TEACHER") %>%
   unnest_tokens(trigram, Content, token = "ngrams", n = 3) %>%
-  count(trigram, sort = TRUE) %>%
-  slice_max(n, n = 10)
+  group_by(trigram) %>%
+  summarise(prevalence = n_distinct(Session.ID) / n_teacher_sessions) %>%
+  arrange(desc(prevalence)) %>%
+  slice_max(prevalence, n = 5)
+
+# For STUDENT_1
+student_sessions <- dat %>% filter(Role == "STUDENT_1") %>% pull(Session.ID) %>% unique()
+n_student_sessions <- length(student_sessions)
+
+student_ngrams <- dat %>%
+  filter(Role == "STUDENT_1") %>%
+  unnest_tokens(trigram, Content, token = "ngrams", n = 3) %>%
+  group_by(trigram) %>%
+  summarise(prevalence = n_distinct(Session.ID) / n_student_sessions) %>%
+  arrange(desc(prevalence)) %>%
+  slice_max(prevalence, n = 5)
 
 print(teacher_ngrams)
 
 # Remove NA if present
 teacher_ngrams <- teacher_ngrams[!is.na(teacher_ngrams$trigram), ]
-ggplot(teacher_ngrams, aes(x = reorder(trigram, n), y = n)) +
+ggplot(teacher_ngrams, aes(x = reorder(trigram, prevalence), y = prevalence)) +
   geom_bar(stat = "identity", fill = "steelblue") +
   labs(title = "Top Teacher Trigrams", x = "Trigram", y = "Count") +
   theme_minimal(base_size = 16) +
@@ -33,20 +58,14 @@ ggplot(teacher_ngrams, aes(x = reorder(trigram, n), y = n)) +
     plot.title = element_text(size = 20)
   )
 
-ggsave("Clustering_Exploration/04_figures/teacher_trigrams.png", width = 10, height = 6)
+ggsave("Clustering_Exploration/04_figures/teacher_trigrams_next.png", width = 10, height = 6)
 
-
-student_ngrams <- dat %>%
-  filter(Role == "STUDENT_1") %>%
-  unnest_tokens(trigram, Content, token = "ngrams", n = 3) %>%
-  count(trigram, sort = TRUE) %>%
-  slice_max(n, n = 10)
 
 print(student_ngrams)
 
 # Remove NA if present
 student_ngrams <- student_ngrams[!is.na(student_ngrams$trigram), ]
-ggplot(student_ngrams, aes(x = reorder(trigram, n), y = n)) +
+ggplot(student_ngrams, aes(x = reorder(trigram, prevalence), y = prevalence)) +
   geom_bar(stat = "identity", fill = "steelblue") +
   labs(title = "Top Student Trigrams", x = "Trigram", y = "Count") +
   theme_minimal(base_size = 16) +
@@ -62,9 +81,9 @@ ggsave("Clustering_Exploration/04_figures/student_trigrams.png", width = 10, hei
 library(patchwork)
 
 # Teacher plot
-p_teacher <- ggplot(teacher_ngrams, aes(x = reorder(trigram, n), y = n)) +
+p_teacher <- ggplot(teacher_ngrams, aes(x = reorder(trigram, prevalence), y = prevalence)) +
   geom_bar(stat = "identity", fill = "steelblue") +
-  labs(title = "Top Teacher Trigrams", x = "Trigram", y = "Count") +
+  labs(title = "Top Teacher Trigrams", x = "Trigram", y = "Prevalence") +
   theme_minimal(base_size = 16) +
   theme(
     axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
@@ -74,9 +93,9 @@ p_teacher <- ggplot(teacher_ngrams, aes(x = reorder(trigram, n), y = n)) +
   )
 
 # Student plot
-p_student <- ggplot(student_ngrams, aes(x = reorder(trigram, n), y = n)) +
+p_student <- ggplot(student_ngrams, aes(x = reorder(trigram, prevalence), y = prevalence)) +
   geom_bar(stat = "identity", fill = "steelblue") +
-  labs(title = "Top Student Trigrams", x = "Trigram", y = "Count") +
+  labs(title = "Top Student Trigrams", x = "Trigram", y = "Prevalence") +
   theme_minimal(base_size = 16) +
   theme(
     axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
@@ -84,10 +103,10 @@ p_student <- ggplot(student_ngrams, aes(x = reorder(trigram, n), y = n)) +
     axis.title = element_text(size = 18),
     plot.title = element_text(size = 20)
   )
-
+p_student
 # Combine and save
 combined_plot <- p_teacher / p_student
-ggsave("Clustering_Exploration/04_figures/teacher_student_trigrams.png", combined_plot, width = 10, height = 12)
+ggsave("Clustering_Exploration/04_figures/teacher_student_trigrams_next.png", combined_plot, width = 10, height = 12)
 
 
 
@@ -119,9 +138,9 @@ combined_ngrams <- rbind(teacher_ngrams, student_ngrams)
 
 
 # Plot
-ggplot(combined_ngrams, aes(x = reorder(trigram, n), y = n, fill = Role)) +
+ggplot(combined_ngrams, aes(x = reorder(trigram, prevalence), y = prevalence, fill = Role)) +
   geom_bar(stat = "identity", position = "dodge") +
-  labs(title = "Top Trigrams by Role", x = "Trigram", y = "Count") +
+  labs(title = "Top Trigrams by Role", x = "Trigram", y = "Prevalence") +
   theme_minimal(base_size = 16) +
   theme(
     axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
@@ -130,4 +149,4 @@ ggplot(combined_ngrams, aes(x = reorder(trigram, n), y = n, fill = Role)) +
     plot.title = element_text(size = 20)
   )
 
-ggsave("Clustering_Exploration/04_figures/top_trigrams_by_role.png", width = 12, height = 6)
+ggsave("Clustering_Exploration/04_figures/top_trigrams_by_role_next.png", width = 12, height = 6)
