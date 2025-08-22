@@ -1,97 +1,11 @@
-## load data
-dat <- read.csv("Clustering_Exploration/02_data/UPChieve_HumanAI_Annotations.csv", stringsAsFactors = FALSE)
-str(dat)
-length(unique(dat$Session_ID))
-table(dat$AI_TeacherMove, dat$Role)
-levels(as.factor(dat$AI_TeacherMove))
 
-
-# # Recode empty AI_TeacherMove based on Role
-# dat$AI_TeacherMove[dat$AI_TeacherMove == "" & dat$Role == "TEACHER"] <- "UNLABLED_TEACHER_CHAT"
-# dat$AI_TeacherMove[dat$AI_TeacherMove == "" & dat$Role == "STUDENT_1"] <- "STUDENT_CHAT"
-
-# Prepare data for hidden Markov model
-dat_HM <- dat %>%  
-    filter(AI_TeacherMove != "") %>%
-    mutate(AI_TeacherMove = factor(AI_TeacherMove, levels = c(
-         "EMOTIONAL_SUPPORT",
-        "ERROR_CORRECTION", 
-        "EXEMPLIFYING",
-        "GIVING_HINT", "GIVING_PRAISE",
-        "PROBING_STUDENT_THINKING", "PROMPTING",
-        "PROVIDING_EXPLANATION", "REVOICING",
-        "SCAFFOLDING", "STUDENT_CHAT"
-      # , "UNLABLED_TEACHER_CHAT", "USING_VISUAL_CUES"
-    ))) %>%
-    dplyr::select(Session_ID, Utterance.ID, AI_TeacherMove) 
-
-head(dat_HM)
-table(dat_HM$AI_TeacherMove)
-
-
-# HMM model selection (2–6 states) across all sessions in depmixS4
-install.packages("depmixS4")
-library(depmixS4)
-set.seed(123)
-
-# ---- Prep ----
-# Ensure ordering within and across sessions
-dat_HM <- dat_HM[order(dat_HM$Session_ID, dat_HM$Utterance.ID), ]
-
-# Factorize observed categories
-dat_HM$AI_TeacherMove <- factor(dat_HM$AI_TeacherMove)
-
-# ntimes: length of each session in the (now) ordered data
-session_lengths <- as.numeric(table(dat_HM$Session_ID))
-
-# ---- Fit a grid of models ----
-fit_one <- function(k) {
-  mod <- depmix(
-    response = AI_TeacherMove ~ 1,
-    data     = dat_HM,
-    nstates  = k,
-    family   = multinomial("identity"),
-    ntimes   = session_lengths
-  )
-  fit(mod, verbose = FALSE)
-}
-
-ks <- 2:10
-fits <- lapply(ks, fit_one)
-
-# ---- Collect fit metrics ----
-metrics <- data.frame(
-  nstates = ks,
-  logLik  = sapply(fits, logLik),
-  AIC     = sapply(fits, AIC),
-  BIC     = sapply(fits, BIC),
-  row.names = NULL
-)
-metrics[order(metrics$BIC), ]
-plot(metrics$nstates, metrics$AIC, type = "b", pch = 19,
-     xlab = "Number of States", ylab = "AIC",
-     main = "HMM Model Selection by AIC")
-
-# ---- Pick best by BIC and refit (already fit above) ----
-best_idx <- which.min(metrics$AIC)
-best_k   <- metrics$nstates[best_idx]
-best_fit <- fits[[best_idx]]
-
-# ---- Inspect best model ----
-summary(best_fit)            # transitions + emission probs
-post <- posterior(best_fit)  # state posteriors per utterance
 
 
 # Most likely state per row (Viterbi-like decode via argmax posterior)
 dat_HM$state_hat <- apply(post[ , paste0("S", 1:best_k)], 1, which.max)
 head(dat_HM)
 
-# Map numeric states to descriptive labels
-state_labels <- c(
-  "1" = "Scaffolding mode",
-  "2" = "Correction mode",
-  "3" = "Support mode"
-)
+
 
 dat_HM$state_label <- state_labels[as.character(dat_HM$state_hat)]
 
@@ -102,11 +16,6 @@ head(dat_HM[, c("Session_ID","Utterance.ID","AI_TeacherMove","state_hat","state_
 
 
 # ---- Visualize ----
-# State transition  
-library(ggplot2)
-
-
-
 ggplot(dat_HM, aes(x = Utterance.ID, y = state_label, group = Session_ID)) +
   geom_step() +
   facet_wrap(~ Session_ID, scales = "free_x") +

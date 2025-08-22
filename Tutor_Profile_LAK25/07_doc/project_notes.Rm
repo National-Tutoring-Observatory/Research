@@ -1,0 +1,13 @@
+
+
+# proeject plan
+
+# human vs AI coding
+1. human coding 
+2. AI coding
+3. compare
+4. human review of differences
+-- data with both lables (blinided - randomized by session)
+    -- flag/highlight rows with disagreement
+    -- sepeteraly save the order of which column are human vs AI
+-- huams determin which codes are correect -- only when there is a disagreement
