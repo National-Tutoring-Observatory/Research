@@ -11,6 +11,8 @@ library(stringr)
 dat <- read.csv("Tutor_Profile_LAK25/02_data/UPChieve_HumanAI_Annotations_2.csv", stringsAsFactors = FALSE)
 str(dat)
 length(unique(dat$Session_ID))
+IDs<-as.data.frame((unique(dat$Session_ID)))
+write.csv(IDs, "Tutor_Profile_LAK25/05_tables/Session_IDs.csv", row.names = FALSE)
 table(dat$AI_TeacherMove, dat$Role)
 levels(as.factor(dat$AI_TeacherMove))
 
