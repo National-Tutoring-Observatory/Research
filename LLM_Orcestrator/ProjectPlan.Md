@@ -9,7 +9,9 @@
 - What type of orchestration is right for various tasks? (e.g., prompting, deidentification, etc.)
 
 ## Process
-1. Human label data -- used from other porjects
+1. Human label data -- used from other projects: 
+   - PCLA annotated Saga data (V2)
+   - TeachFX data (V2)
 2. Run each orchestration LLM agent method (defined below) with the following bootstrapping:  
    - Randomly sample 100 lines  
    - Estimate IRR (e.g., Cohen’s kappa)  
